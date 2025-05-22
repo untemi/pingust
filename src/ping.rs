@@ -3,6 +3,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::{Instant, timeout};
 
+// TODO: use actual ping rather than Tcp
 pub async fn run(adrr: &str, deadline: u64) -> Result<Duration> {
     let future = TcpStream::connect(format!("{adrr}:80"));
 
