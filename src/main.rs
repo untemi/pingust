@@ -5,7 +5,7 @@ use output::term::Term;
 use clap::{Parser, Subcommand};
 use error::*;
 use msg::Msg;
-use std::time::Duration;
+use std::{env, time::Duration};
 use tokio::time::sleep;
 
 mod error;
@@ -31,8 +31,12 @@ struct Args {
     attempts: u32,
 
     #[arg(short, long, global = true)]
-    #[arg(help = "run until the end of the universe.")]
+    #[arg(help = "run until the end of the universe")]
     infinite: bool,
+
+    #[arg(long, global = true)]
+    #[arg(help = "do nothing if error")]
+    no_error: bool,
 }
 
 #[derive(Subcommand)]
@@ -62,25 +66,30 @@ enum Bars {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    let adrr = env::var("PINGUST_ADRR").unwrap_or("google.com".to_string());
 
     let att = args.attempts;
     let mut ok_seq = 0;
 
     while ok_seq < att || args.infinite {
-        let result = ping::run("google.com", args.timout).await;
+        let result = ping::run(&adrr, args.timout).await;
 
         let msg = match &result {
             Ok(dur) => {
                 ok_seq += 1;
                 match () {
-                    _ if att == ok_seq => Msg::Done,
                     _ if args.infinite => Msg::Recheck(0, *dur),
+                    _ if att == ok_seq => Msg::Done,
                     _ => Msg::Recheck(att - ok_seq, *dur),
                 }
             }
 
             Err(e) => {
                 ok_seq = 0;
+                if args.no_error {
+                    continue;
+                }
+
                 Msg::Error(e)
             }
         };
