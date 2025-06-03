@@ -1,6 +1,5 @@
-use output::bar::Bar;
-use output::notif::Notif;
 use output::term::Term;
+use output::{bar::Bar, notif::Notif};
 
 use clap::{Parser, Subcommand};
 use error::*;
@@ -47,7 +46,7 @@ enum Commands {
     #[command(about = "system bar module colors")]
     Bar {
         #[command(subcommand)]
-        types: Bars,
+        variant: Bars,
     },
 
     #[command(about = "terminal output")]
@@ -72,21 +71,29 @@ async fn main() -> anyhow::Result<()> {
     let mut ok_seq = 0;
 
     while ok_seq < att || args.infinite {
+        // run the ping
         let result = ping::run(&adrr, args.timout).await;
 
+        // get the appropriate Msg
         let msg = match &result {
             Ok(dur) => {
                 ok_seq += 1;
-                match () {
-                    _ if args.infinite => Msg::Recheck(0, *dur),
-                    _ if att == ok_seq => Msg::Done,
-                    _ => Msg::Recheck(att - ok_seq, *dur),
+                match args.infinite {
+                    // for -i
+                    true => Msg::Recheck(0, *dur),
+                    // no -i & if its the last loop
+                    false if att == ok_seq => Msg::Done,
+                    // no -i & we still counting
+                    false => Msg::Recheck(att - ok_seq, *dur),
                 }
             }
 
             Err(e) => {
                 ok_seq = 0;
+
+                // for --no-error continue & sleep early
                 if args.no_error {
+                    sleep(Duration::from_millis(args.gap)).await;
                     continue;
                 }
 
@@ -94,21 +101,25 @@ async fn main() -> anyhow::Result<()> {
             }
         };
 
-        match args.command {
-            Commands::Term { minimal: false } => msg.term_full(),
-            Commands::Term { minimal: true } => msg.term_min(),
+        // appropriate based on the command
+        match &args.command {
             Commands::Notif => msg.notify()?,
 
-            Commands::Bar {
-                types: Bars::Waybar,
-            } => msg.waybar(),
+            Commands::Term { minimal } => match minimal {
+                true => msg.term_min(),
+                false => msg.term_full(),
+            },
 
-            Commands::Bar {
-                types: Bars::Polybar,
-            } => msg.polybar(),
+            Commands::Bar { variant } => match variant {
+                Bars::Waybar => msg.waybar(),
+                Bars::Polybar => msg.polybar(),
+            },
         }
 
-        sleep(Duration::from_millis(args.gap)).await;
+        // dont sleep in the last loop
+        if !(ok_seq < att || args.infinite) {
+            sleep(Duration::from_millis(args.gap)).await;
+        }
     }
 
     Ok(())
