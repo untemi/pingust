@@ -13,7 +13,7 @@ impl Term for Msg<'_> {
     fn term_full(&self) {
         let mut txt = format!(" [{}]❯ {}", self.ico(), self.message());
         if let Some(duration) = self.duration() {
-            txt.push_str(&format!(" - {:?}", duration));
+            txt.push_str(&format!(" - {duration:?}"));
         }
 
         println!("{txt}")

@@ -13,7 +13,7 @@ impl Msg<'_> {
     pub fn message(&self) -> String {
         match self {
             Msg::Recheck(0, _) => "Connected".to_string(),
-            Msg::Recheck(left, _) => format!("Connected, {} Retry left", left),
+            Msg::Recheck(left, _) => format!("Connected, {left} Retry left"),
             Msg::Done => "Conection Stable".to_string(),
             Msg::Error(err) => err.to_string(),
         }

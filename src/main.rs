@@ -4,8 +4,8 @@ use output::{bar::Bar, notif::Notif};
 use clap::{Parser, Subcommand};
 use error::*;
 use msg::Msg;
+use std::thread::sleep;
 use std::{env, time::Duration};
-use tokio::time::sleep;
 
 mod error;
 mod msg;
@@ -19,7 +19,7 @@ struct Args {
 
     #[arg(short, long, default_value_t = 100, global = true)]
     #[arg(help = "ping timeout in ms")]
-    timout: u64,
+    timeout: u64,
 
     #[arg(short, long, default_value_t = 6000, global = true)]
     #[arg(help = "gap between tires in ms")]
@@ -62,8 +62,7 @@ enum Bars {
     Polybar,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let adrr = env::var("PINGUST_ADRR").unwrap_or("google.com".to_string());
 
@@ -72,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
 
     while ok_seq < att || args.infinite {
         // run the ping
-        let result = ping::run(&adrr, args.timout).await;
+        let result = ping::run(adrr.clone(), args.timeout);
 
         // get the appropriate Msg
         let msg = match &result {
@@ -93,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
 
                 // for --no-error continue & sleep early
                 if args.no_error {
-                    sleep(Duration::from_millis(args.gap)).await;
+                    sleep(Duration::from_millis(args.gap));
                     continue;
                 }
 
@@ -117,8 +116,8 @@ async fn main() -> anyhow::Result<()> {
         }
 
         // dont sleep in the last loop
-        if !(ok_seq < att || args.infinite) {
-            sleep(Duration::from_millis(args.gap)).await;
+        if ok_seq < att || args.infinite {
+            sleep(Duration::from_millis(args.gap));
         }
     }
 
